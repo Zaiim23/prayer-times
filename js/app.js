@@ -9,12 +9,35 @@ function parseStoredCoordinate(key) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+const DEFAULT_LOCATION = Object.freeze({
+    city: 'Copenhagen',
+    country: 'Denmark',
+    lat: 55.6761,
+    lng: 12.5683
+});
+
+const savedCity = localStorage.getItem('prayer_city');
+const savedCountry = localStorage.getItem('prayer_country');
+const savedLat = parseStoredCoordinate('prayer_lat');
+const savedLng = parseStoredCoordinate('prayer_lng');
+const hasSavedLocation = Boolean(savedCity) || (savedLat !== null && savedLng !== null);
+const usingDefaultLocation = !hasSavedLocation;
+
+const initialLocation = hasSavedLocation
+    ? {
+        city: savedCity || 'Current Location',
+        country: savedCountry || '',
+        lat: savedLat,
+        lng: savedLng
+    }
+    : DEFAULT_LOCATION;
+
 // Application State
 const state = {
-    city: localStorage.getItem('prayer_city') || 'London',
-    country: localStorage.getItem('prayer_country') || 'United Kingdom',
-    lat: parseStoredCoordinate('prayer_lat'),
-    lng: parseStoredCoordinate('prayer_lng'),
+    city: initialLocation.city,
+    country: initialLocation.country,
+    lat: initialLocation.lat,
+    lng: initialLocation.lng,
     method: parseInt(localStorage.getItem('prayer_method')) || 2,
     school: parseInt(localStorage.getItem('prayer_school')) || 0,
     theme: localStorage.getItem('prayer_theme') || 'dark',
@@ -78,8 +101,14 @@ const PRAYER_ICONS = {
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initSettingsUI();
+    initSearchInput();
     initEventListeners();
-    loadPrayerData();
+
+    loadPrayerData().then(() => {
+        if (usingDefaultLocation && state.timings && state.city === DEFAULT_LOCATION.city) {
+            showToast('Showing Copenhagen, Denmark. Search a city or tap Nearby to change location.');
+        }
+    });
     
     // Start live clock ticker
     setInterval(updateClockAndCountdown, 1000);
@@ -94,12 +123,26 @@ function initSettingsUI() {
     if (madhabSelect) madhabSelect.value = state.school;
 }
 
+function initSearchInput() {
+    if (usingDefaultLocation) {
+        citySearchInput.value = `${state.city}, ${state.country}`;
+    }
+}
+
 function initEventListeners() {
     // Theme toggle
     themeToggleBtn.addEventListener('click', () => {
         state.theme = state.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('prayer_theme', state.theme);
         initTheme();
+    });
+
+    // Keep the default location readable while making it easy to overwrite
+    citySearchInput.addEventListener('focus', () => {
+        const locationText = state.country ? `${state.city}, ${state.country}` : state.city;
+        if (usingDefaultLocation && citySearchInput.value === locationText) {
+            citySearchInput.select();
+        }
     });
 
     // City search: debounced autocomplete
