@@ -170,6 +170,10 @@ function initEventListeners() {
             showToast('Geolocation is not supported by your browser');
             return;
         }
+
+        // Cancel any location-specific work for the previous city right away
+        cancelMosqueRequest(true);
+        cancelCityGeocodeRequest();
         showToast('Detecting your location...');
         navigator.geolocation.getCurrentPosition(
             async (position) => {
@@ -194,6 +198,11 @@ function initEventListeners() {
             (error) => {
                 console.error('Geolocation error:', error);
                 showToast('Unable to retrieve your location. Please check permissions.');
+                if (state.mosques.length > 0) {
+                    renderMosques();
+                } else {
+                    mosquesListEl.innerHTML = `<div class="loading-state">Unable to detect location for nearby mosques.</div>`;
+                }
             },
             { timeout: 10000, maximumAge: 60000 }
         );
