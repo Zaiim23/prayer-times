@@ -570,6 +570,30 @@ body {
     font-size: 0.9rem;
 }
 
+.loading-mosques {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.spinner {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border: 2px solid var(--glass-border);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spinnerRotate 0.75s linear infinite;
+}
+
+@keyframes spinnerRotate {
+    to { transform: rotate(360deg); }
+}
+
 .prayer-item {
     display: flex;
     align-items: center;

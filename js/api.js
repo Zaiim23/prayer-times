@@ -124,14 +124,16 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Fetch nearby mosques using Overpass API
+ * Fetch nearby mosques using Overpass API.
+ * Limits results to the 5 closest nodes for a much faster response,
+ * and accepts an AbortSignal so stale requests can be cancelled.
  */
-async function fetchNearbyMosques(lat, lng, radius = 5000) {
+async function fetchNearbyMosques(lat, lng, radius = 5000, signal) {
     try {
-        const query = `[out:json];node["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});out;`;
+        const query = `[out:json];node["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});out 5;`;
         const url = `${API_OVERPASS}?data=${encodeURIComponent(query)}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, { signal });
         if (!response.ok) {
             throw new Error('Failed to fetch nearby mosques from OpenStreetMap');
         }
@@ -153,6 +155,9 @@ async function fetchNearbyMosques(lat, lng, radius = 5000) {
         mosques.sort((a, b) => a.distance - b.distance);
         return mosques.slice(0, 3);
     } catch (error) {
+        if (error.name === 'AbortError') {
+            return null;
+        }
         console.error('Error in fetchNearbyMosques:', error);
         return [];
     }

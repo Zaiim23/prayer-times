@@ -23,6 +23,14 @@ let searchRequestId = 0;
 let currentSuggestions = [];
 let activeSuggestionIndex = -1;
 
+// Prayer/mosque request management (prevents stale responses from winning)
+let prayerRequestId = 0;
+let mosqueAbortController = null;
+let mosqueRequestId = 0;
+let cityGeocodeAbortController = null;
+let cityGeocodeRequestId = 0;
+let lastMosqueLocationKey = null;
+
 // DOM Elements
 const themeToggleBtn = document.getElementById('theme-toggle');
 const citySearchInput = document.getElementById('city-search');
@@ -182,7 +190,7 @@ function initEventListeners() {
     methodSelect.addEventListener('change', () => {
         state.method = parseInt(methodSelect.value);
         localStorage.setItem('prayer_method', state.method);
-        loadPrayerData();
+        loadPrayerData({ refreshMosques: false });
         showToast('Calculation method updated');
     });
 
@@ -190,7 +198,7 @@ function initEventListeners() {
     madhabSelect.addEventListener('change', () => {
         state.school = parseInt(madhabSelect.value);
         localStorage.setItem('prayer_school', state.school);
-        loadPrayerData();
+        loadPrayerData({ refreshMosques: false });
         showToast('Asr calculation method updated');
     });
 }
@@ -383,7 +391,44 @@ function showToast(message) {
     }, 3500);
 }
 
-async function loadPrayerData() {
+function showMosquesLoading() {
+    mosquesListEl.innerHTML = `
+        <div class="loading-mosques">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Finding nearby mosques...</span>
+        </div>
+    `;
+}
+
+function cancelMosqueRequest(showLoading = false) {
+    mosqueRequestId += 1;
+    if (mosqueAbortController) {
+        mosqueAbortController.abort();
+        mosqueAbortController = null;
+    }
+    if (showLoading) {
+        showMosquesLoading();
+    }
+}
+
+function cancelCityGeocodeRequest() {
+    cityGeocodeRequestId += 1;
+    if (cityGeocodeAbortController) {
+        cityGeocodeAbortController.abort();
+        cityGeocodeAbortController = null;
+    }
+}
+
+async function loadPrayerData({ refreshMosques = true } = {}) {
+    const requestId = ++prayerRequestId;
+
+    if (refreshMosques) {
+        // Abort any in-flight location lookups immediately so stale
+        // mosques can never overwrite the newly selected city.
+        cancelMosqueRequest(true);
+        cancelCityGeocodeRequest();
+    }
+
     try {
         let data;
         if (state.lat !== null && state.lng !== null) {
@@ -391,6 +436,8 @@ async function loadPrayerData() {
         } else {
             data = await fetchPrayerTimesByCity(state.city, state.country, state.method, state.school);
         }
+
+        if (requestId !== prayerRequestId) return;
 
         state.timings = data.timings;
         state.dateInfo = data.date;
@@ -407,48 +454,104 @@ async function loadPrayerData() {
 
         renderPrayerTimeline();
 
-        if (state.lat !== null && state.lng !== null) {
-            loadNearbyMosquesData(state.lat, state.lng);
-        } else {
-            geocodeCityForMosques(state.city, state.country);
+        const locationKey = state.lat !== null && state.lng !== null
+            ? `geo:${state.lat.toFixed(4)},${state.lng.toFixed(4)}`
+            : `city:${state.city}|${state.country}`;
+        const mosqueLocationChanged = locationKey !== lastMosqueLocationKey;
+
+        if (refreshMosques || mosqueLocationChanged) {
+            lastMosqueLocationKey = locationKey;
+
+            if (state.lat !== null && state.lng !== null) {
+                loadNearbyMosquesData(state.lat, state.lng);
+            } else {
+                geocodeCityForMosques(state.city, state.country, requestId);
+            }
         }
 
     } catch (error) {
+        if (requestId !== prayerRequestId) return;
         console.error('Failed to load prayer data:', error);
         showToast('Failed to load prayer times. Please check city name.');
         prayerListEl.innerHTML = `<div class="loading-state">Could not load prayer times. Please try searching another city.</div>`;
+        if (refreshMosques) {
+            mosquesListEl.innerHTML = `<div class="loading-state">Nearby mosques unavailable.</div>`;
+        }
     }
 }
 
-async function geocodeCityForMosques(city, country) {
+async function geocodeCityForMosques(city, country, prayerRequest) {
+    cityGeocodeRequestId += 1;
+    const requestId = cityGeocodeRequestId;
+
+    if (cityGeocodeAbortController) {
+        cityGeocodeAbortController.abort();
+    }
+    const controller = new AbortController();
+    cityGeocodeAbortController = controller;
+
     try {
-        const query = encodeURIComponent(`${city}, ${country}`);
+        const query = encodeURIComponent(`${city}, ${country}`.replace(/^,\s*|\s*,\s*$/g, ''));
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`, {
+            signal: controller.signal,
             headers: { 'User-Agent': 'PrayerTimesWebApp/1.0' }
         });
+        if (!res.ok) {
+            throw new Error('City geocoding failed');
+        }
         const results = await res.json();
+
+        if (requestId !== cityGeocodeRequestId || prayerRequest !== prayerRequestId) return;
+
         if (results && results.length > 0) {
             const lat = parseFloat(results[0].lat);
             const lng = parseFloat(results[0].lon);
-            loadNearbyMosquesData(lat, lng);
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                loadNearbyMosquesData(lat, lng);
+            } else {
+                mosquesListEl.innerHTML = `<div class="loading-state">Nearby mosques unavailable for this location.</div>`;
+            }
         } else {
             mosquesListEl.innerHTML = `<div class="loading-state">Nearby mosques unavailable for this location.</div>`;
         }
     } catch (err) {
+        if (err.name === 'AbortError') return;
+        if (requestId !== cityGeocodeRequestId || prayerRequest !== prayerRequestId) return;
         console.error('City geocoding for mosques failed:', err);
         mosquesListEl.innerHTML = `<div class="loading-state">Unable to load nearby mosques.</div>`;
+    } finally {
+        if (cityGeocodeAbortController === controller) {
+            cityGeocodeAbortController = null;
+        }
     }
 }
 
 async function loadNearbyMosquesData(lat, lng) {
-    mosquesListEl.innerHTML = `<div class="loading-state">Searching for nearby mosques...</div>`;
+    const requestId = ++mosqueRequestId;
+
+    if (mosqueAbortController) {
+        mosqueAbortController.abort();
+    }
+    const controller = new AbortController();
+    mosqueAbortController = controller;
+
+    showMosquesLoading();
+
     try {
-        const mosques = await fetchNearbyMosques(lat, lng, 5000);
+        const mosques = await fetchNearbyMosques(lat, lng, 5000, controller.signal);
+        if (mosques === null || requestId !== mosqueRequestId) return;
+
         state.mosques = mosques;
         renderMosques();
     } catch (err) {
+        if (err.name === 'AbortError') return;
+        if (requestId !== mosqueRequestId) return;
         console.error('Failed to load mosques:', err);
         mosquesListEl.innerHTML = `<div class="loading-state">No nearby mosques found within 5km.</div>`;
+    } finally {
+        if (mosqueAbortController === controller) {
+            mosqueAbortController = null;
+        }
     }
 }
 
