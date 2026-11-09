@@ -1,6 +1,8 @@
-# Prayer Times
+# 🕌 Prayer Times
 
-A premium, modern Islamic Prayer Times and Nearby Mosques web application built with pure vanilla JavaScript (ES6+), HTML5, and CSS3.
+**[🔴 Live Demo](https://zaiim23.github.io/prayer-times/)**
+
+A premium, modern Islamic Prayer Times and Nearby Mosques web application built with JavaScript (ES6+), HTML5, and CSS3.
 
 ## Features
 
