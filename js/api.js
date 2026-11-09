@@ -156,7 +156,7 @@ async function fetchNearbyMosques(lat, lng, radius = 5000, signal) {
         return mosques.slice(0, 3);
     } catch (error) {
         if (error.name === 'AbortError') {
-            return null;
+            throw error;
         }
         console.error('Error in fetchNearbyMosques:', error);
         return [];

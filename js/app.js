@@ -2,18 +2,27 @@
  * app.js - DOM manipulation, state management, live countdown, and UI logic
  */
 
+function parseStoredCoordinate(key) {
+    const stored = localStorage.getItem(key);
+    if (stored === null || stored === '') return null;
+    const parsed = Number(stored);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 // Application State
 const state = {
     city: localStorage.getItem('prayer_city') || 'London',
     country: localStorage.getItem('prayer_country') || 'United Kingdom',
-    lat: parseFloat(localStorage.getItem('prayer_lat')) || null,
-    lng: parseFloat(localStorage.getItem('prayer_lng')) || null,
+    lat: parseStoredCoordinate('prayer_lat'),
+    lng: parseStoredCoordinate('prayer_lng'),
     method: parseInt(localStorage.getItem('prayer_method')) || 2,
     school: parseInt(localStorage.getItem('prayer_school')) || 0,
     theme: localStorage.getItem('prayer_theme') || 'dark',
+    timezone: null,
     timings: null,
     dateInfo: null,
-    mosques: []
+    mosques: [],
+    activeKey: null
 };
 
 // Autocomplete request management
@@ -30,6 +39,10 @@ let mosqueRequestId = 0;
 let cityGeocodeAbortController = null;
 let cityGeocodeRequestId = 0;
 let lastMosqueLocationKey = null;
+
+// Cache the Intl formatter per timezone rather than rebuilding it every second
+let timezoneFormatter = null;
+let timezoneFormatterZone = null;
 
 // DOM Elements
 const themeToggleBtn = document.getElementById('theme-toggle');
@@ -441,6 +454,7 @@ async function loadPrayerData({ refreshMosques = true } = {}) {
 
         state.timings = data.timings;
         state.dateInfo = data.date;
+        state.timezone = data.meta && data.meta.timezone ? data.meta.timezone : null;
 
         const locationText = state.country ? `${state.city}, ${state.country}` : state.city;
         locationNameEl.textContent = locationText;
@@ -535,20 +549,29 @@ async function loadNearbyMosquesData(lat, lng) {
     const controller = new AbortController();
     mosqueAbortController = controller;
 
+    // Overpass can occasionally hang; never leave the spinner running forever
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     showMosquesLoading();
 
     try {
         const mosques = await fetchNearbyMosques(lat, lng, 5000, controller.signal);
-        if (mosques === null || requestId !== mosqueRequestId) return;
+        if (requestId !== mosqueRequestId) return;
 
         state.mosques = mosques;
         renderMosques();
     } catch (err) {
-        if (err.name === 'AbortError') return;
+        if (err.name === 'AbortError') {
+            if (requestId === mosqueRequestId) {
+                mosquesListEl.innerHTML = `<div class="loading-state">Mosque search timed out. Please try again.</div>`;
+            }
+            return;
+        }
         if (requestId !== mosqueRequestId) return;
         console.error('Failed to load mosques:', err);
         mosquesListEl.innerHTML = `<div class="loading-state">No nearby mosques found within 5km.</div>`;
     } finally {
+        clearTimeout(timeoutId);
         if (mosqueAbortController === controller) {
             mosqueAbortController = null;
         }
@@ -600,13 +623,14 @@ function renderPrayerTimeline() {
     if (!state.timings) return;
 
     const currentNext = getNextPrayerInfo();
-    
+    state.activeKey = currentNext ? currentNext.activeKey : null;
+
     prayerListEl.innerHTML = PRAYER_KEYS.map(p => {
         const timeStr = state.timings[p.key];
-        const isActive = currentNext && currentNext.activeKey === p.key;
+        const isActive = state.activeKey === p.key;
 
         return `
-            <div class="prayer-item ${isActive ? 'active' : ''}">
+            <div class="prayer-item ${isActive ? 'active' : ''}" data-prayer-key="${p.key}">
                 <div class="prayer-info">
                     <div class="prayer-icon-wrap">
                         ${PRAYER_ICONS[p.key] || PRAYER_ICONS.Fajr}
@@ -617,6 +641,15 @@ function renderPrayerTimeline() {
             </div>
         `;
     }).join('');
+}
+
+function updateActivePrayerHighlight(activeKey) {
+    if (!activeKey || state.activeKey === activeKey) return;
+
+    state.activeKey = activeKey;
+    prayerListEl.querySelectorAll('.prayer-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.prayerKey === activeKey);
+    });
 }
 
 function formatTime12Hour(time24) {
@@ -631,13 +664,57 @@ function formatTime12Hour(time24) {
     return `${hours}:${minutes} ${ampm}`;
 }
 
-function getNextPrayerInfo() {
+function getTimeFormatter() {
+    if (!state.timezone) return null;
+
+    if (timezoneFormatterZone !== state.timezone) {
+        try {
+            timezoneFormatter = new Intl.DateTimeFormat('en-GB', {
+                timeZone: state.timezone,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hourCycle: 'h23'
+            });
+            timezoneFormatterZone = state.timezone;
+        } catch (error) {
+            // Invalid IANA timezone from the API - fall back to local time
+            timezoneFormatter = null;
+            timezoneFormatterZone = state.timezone;
+        }
+    }
+
+    return timezoneFormatter;
+}
+
+function getNowParts() {
+    const formatter = getTimeFormatter();
+
+    if (!formatter) {
+        const now = new Date();
+        return {
+            hours: now.getHours(),
+            minutes: now.getMinutes(),
+            seconds: now.getSeconds()
+        };
+    }
+
+    const parts = {};
+    formatter.formatToParts(new Date()).forEach(part => {
+        parts[part.type] = part.value;
+    });
+
+    return {
+        hours: Number(parts.hour) % 24,
+        minutes: Number(parts.minute),
+        seconds: Number(parts.second)
+    };
+}
+
+function getNextPrayerInfo(nowParts = getNowParts()) {
     if (!state.timings) return null;
 
-    const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const currentSeconds = now.getSeconds();
-    const totalCurrentSecs = currentMinutes * 60 + currentSeconds;
+    const totalCurrentSecs = nowParts.hours * 3600 + nowParts.minutes * 60 + nowParts.seconds;
 
     const obligatory = [
         { key: 'Fajr', name: 'Fajr' },
@@ -679,25 +756,23 @@ function getNextPrayerInfo() {
 }
 
 function updateClockAndCountdown() {
-    const now = new Date();
-    
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const nowParts = getNowParts();
+
+    const hours = String(nowParts.hours).padStart(2, '0');
+    const minutes = String(nowParts.minutes).padStart(2, '0');
+    const seconds = String(nowParts.seconds).padStart(2, '0');
     currentClockEl.textContent = `${hours}:${minutes}:${seconds}`;
 
     if (!state.timings) return;
 
-    const info = getNextPrayerInfo();
+    const info = getNextPrayerInfo(nowParts);
     if (!info) return;
 
     nextPrayerNameEl.textContent = info.next.name;
     nextPrayerTimeEl.textContent = `At ${formatTime12Hour(info.next.timeStr)}`;
+    updateActivePrayerHighlight(info.activeKey);
 
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const totalCurrentSecs = currentMinutes * 60 + now.getSeconds();
-    
-    let diffSecs = info.next.secs - totalCurrentSecs;
+    let diffSecs = info.next.secs - info.totalCurrentSecs;
     if (diffSecs < 0) {
         diffSecs += 24 * 3600;
     }
