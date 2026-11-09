@@ -567,13 +567,38 @@ body {
 
 .card-header {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.card-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
 }
 
 .card-header h2 {
     font-size: 1.2rem;
     font-weight: 700;
+}
+
+.card-subtext {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 340px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+.card-subtext svg {
+    flex-shrink: 0;
+    opacity: 0.75;
 }
 
 .sub-label {
@@ -586,6 +611,25 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.mosque-disclaimer {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--glass-border);
+    font-size: 0.76rem;
+    font-weight: 500;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.mosque-disclaimer svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--accent-primary);
+    opacity: 0.8;
 }
 
 .loading-state {

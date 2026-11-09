@@ -36,6 +36,10 @@ prayer-times/
 - [OpenStreetMap Overpass](https://overpass-api.de/) for nearby mosques.
 - [Nominatim](https://nominatim.openstreetmap.org/) for reverse geocoding and city coordinates.
 
+## Important Note
+
+Prayer times are calculated for the selected location. Always check with the specific mosque for their exact Iqamah and Jummah times.
+
 ## Getting Started
 
 Simply open `index.html` in any modern web browser or serve it with a local static server (e.g., Live Server in VS Code). No build tools, bundlers, or backend required!
