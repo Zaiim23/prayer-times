@@ -4,6 +4,7 @@
 
 const API_BASE_ALADHAN = 'https://api.aladhan.com/v1';
 const API_NOMINATIM = 'https://nominatim.openstreetmap.org/reverse';
+const API_NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
 const API_OVERPASS = 'https://overpass-api.de/api/interpreter';
 const API_OPEN_METEO_GEO = 'https://geocoding-api.open-meteo.com/v1/search';
 
@@ -161,4 +162,32 @@ async function fetchNearbyMosques(lat, lng, radius = 5000, signal) {
         console.error('Error in fetchNearbyMosques:', error);
         return [];
     }
+}
+
+/**
+ * Geocode a city and country with Nominatim.
+ * Returns null when no usable coordinates were found.
+ */
+async function geocodeCity(city, country = '', signal) {
+    const query = encodeURIComponent(`${city}, ${country}`.replace(/^,\s*|\s*,\s*$/g, ''));
+    const url = `${API_NOMINATIM_SEARCH}?format=json&q=${query}&limit=1`;
+
+    const response = await fetch(url, {
+        signal,
+        headers: { 'User-Agent': 'PrayerTimesWebApp/1.0' }
+    });
+
+    if (!response.ok) {
+        throw new Error('City geocoding failed');
+    }
+
+    const results = await response.json();
+    if (!Array.isArray(results) || results.length === 0) {
+        return null;
+    }
+
+    const lat = parseFloat(results[0].lat);
+    const lng = parseFloat(results[0].lon);
+
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
 }

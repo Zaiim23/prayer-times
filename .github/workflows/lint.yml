@@ -1,0 +1,62 @@
+name: Lint
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  static-checks:
+    name: HTML, CSS, and JavaScript checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check JavaScript syntax
+        run: |
+          for file in js/*.js; do
+            echo "Checking $file"
+            node --check "$file"
+          done
+
+      - name: Check local assets and CSS braces
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const html = fs.readFileSync('index.html', 'utf8');
+          for (const marker of ['<!DOCTYPE html>', '<html', '</html>', '<body', '</body>']) {
+            if (!html.includes(marker)) {
+              throw new Error(`index.html is missing ${marker}`);
+            }
+          }
+
+          const refs = [...html.matchAll(/(?:src|href)="((?!https?:|#|mailto:)[^"]+)"/g)].map(match => match[1]);
+          for (const ref of refs) {
+            if (!fs.existsSync(path.resolve(ref))) {
+              throw new Error(`Missing local asset referenced by index.html: ${ref}`);
+            }
+          }
+
+          for (const file of fs.readdirSync('css').filter(name => name.endsWith('.css'))) {
+            const css = fs.readFileSync(path.join('css', file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+            let depth = 0;
+            for (const character of css) {
+              if (character === '{') depth += 1;
+              if (character === '}') depth -= 1;
+              if (depth < 0) throw new Error(`${file} has an unmatched closing brace`);
+            }
+            if (depth !== 0) throw new Error(`${file} has unbalanced braces`);
+          }
+
+          console.log('Static asset checks passed.');
+          NODE

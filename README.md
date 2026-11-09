@@ -1,5 +1,7 @@
 # 🕌 Prayer Times
 
+[![Lint](https://github.com/Zaiim23/prayer-times/actions/workflows/lint.yml/badge.svg)](https://github.com/Zaiim23/prayer-times/actions/workflows/lint.yml)
+
 **[🔴 Live Demo](https://zaiim23.github.io/prayer-times/)**
 
 A premium, modern Islamic Prayer Times and Nearby Mosques web application built with JavaScript (ES6+), HTML5, and CSS3.
@@ -28,7 +30,12 @@ prayer-times/
 │   └── style.css
 ├── js/
 │   ├── api.js        (AlAdhan, Open-Meteo, Nominatim, and Overpass API integration)
-│   └── app.js        (State management, autocomplete, DOM rendering, live countdown)
+│   ├── ui.js         (DOM caching, rendering, live countdown, and presentational helpers)
+│   └── app.js        (State management, autocomplete, request handling, and event listeners)
+├── .github/
+│   └── workflows/
+│       └── lint.yml  (JavaScript syntax, asset, and CSS checks)
+├── LICENSE
 └── README.md
 ```
 
