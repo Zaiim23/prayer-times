@@ -16,9 +16,17 @@ const state = {
     mosques: []
 };
 
+// Autocomplete request management
+let searchAbortController = null;
+let searchDebounceTimer = null;
+let searchRequestId = 0;
+let currentSuggestions = [];
+let activeSuggestionIndex = -1;
+
 // DOM Elements
 const themeToggleBtn = document.getElementById('theme-toggle');
 const citySearchInput = document.getElementById('city-search');
+const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
 const btnNearby = document.getElementById('btn-nearby');
 const methodSelect = document.getElementById('method-select');
 const madhabSelect = document.getElementById('madhab-select');
@@ -73,24 +81,65 @@ function initEventListeners() {
         initTheme();
     });
 
-    // City search on Enter
+    // City search: debounced autocomplete
+    citySearchInput.addEventListener('input', () => {
+        const query = citySearchInput.value.trim();
+        clearTimeout(searchDebounceTimer);
+        abortAutocompleteRequest();
+        searchRequestId += 1;
+        activeSuggestionIndex = -1;
+
+        currentSuggestions = [];
+        hideAutocomplete();
+
+        if (query.length < 2) {
+            return;
+        }
+
+        const requestId = searchRequestId;
+        searchDebounceTimer = setTimeout(() => {
+            requestCitySuggestions(query, requestId);
+        }, 300);
+    });
+
     citySearchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const query = citySearchInput.value.trim();
-            if (query) {
-                const parts = query.split(',').map(s => s.trim());
-                state.city = parts[0];
-                state.country = parts[1] || '';
-                state.lat = null;
-                state.lng = null;
-                localStorage.removeItem('prayer_lat');
-                localStorage.removeItem('prayer_lng');
-                localStorage.setItem('prayer_city', state.city);
-                localStorage.setItem('prayer_country', state.country);
-                citySearchInput.value = '';
-                loadPrayerData();
-                showToast(`Searching prayer times for ${state.city}...`);
+        if (e.key === 'Escape') {
+            dismissAutocomplete();
+            return;
+        }
+
+        const items = Array.from(autocompleteDropdown.querySelectorAll('.autocomplete-item'));
+
+        if (items.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            e.preventDefault();
+            if (e.key === 'ArrowDown') {
+                activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
+            } else {
+                activeSuggestionIndex = activeSuggestionIndex <= 0 ? items.length - 1 : activeSuggestionIndex - 1;
             }
+            setActiveSuggestion(items);
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeSuggestionIndex >= 0 && currentSuggestions[activeSuggestionIndex]) {
+                selectCitySuggestion(currentSuggestions[activeSuggestionIndex]);
+                return;
+            }
+            if (currentSuggestions.length > 0) {
+                selectCitySuggestion(currentSuggestions[0]);
+                return;
+            }
+            const query = citySearchInput.value.trim();
+            if (query) resolveSearchOnEnter(query);
+        }
+    });
+
+    // Dismiss suggestions when clicking outside the search box
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-box')) {
+            dismissAutocomplete();
         }
     });
 
@@ -144,6 +193,186 @@ function initEventListeners() {
         loadPrayerData();
         showToast('Asr calculation method updated');
     });
+}
+
+function abortAutocompleteRequest() {
+    if (searchAbortController) {
+        searchAbortController.abort();
+        searchAbortController = null;
+    }
+}
+
+function hideAutocomplete() {
+    autocompleteDropdown.classList.add('hidden');
+    autocompleteDropdown.innerHTML = '';
+    citySearchInput.setAttribute('aria-expanded', 'false');
+    activeSuggestionIndex = -1;
+}
+
+function dismissAutocomplete() {
+    searchRequestId += 1;
+    clearTimeout(searchDebounceTimer);
+    abortAutocompleteRequest();
+    currentSuggestions = [];
+    hideAutocomplete();
+}
+
+function showAutocompleteLoading() {
+    autocompleteDropdown.innerHTML = `
+        <div class="autocomplete-loading">
+            <span class="autocomplete-spinner" aria-hidden="true"></span>
+            <span>Searching cities...</span>
+        </div>
+    `;
+    autocompleteDropdown.classList.remove('hidden');
+    citySearchInput.setAttribute('aria-expanded', 'true');
+}
+
+async function requestCitySuggestions(query, requestId) {
+    if (requestId !== searchRequestId) return;
+
+    showAutocompleteLoading();
+    abortAutocompleteRequest();
+    const controller = new AbortController();
+    searchAbortController = controller;
+
+    try {
+        const results = await fetchCitySuggestions(query, controller.signal);
+        if (requestId !== searchRequestId || citySearchInput.value.trim() !== query) return;
+        renderAutocomplete(results);
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+        if (requestId === searchRequestId) renderAutocomplete([]);
+    } finally {
+        if (searchAbortController === controller) {
+            searchAbortController = null;
+        }
+    }
+}
+
+function renderAutocomplete(results) {
+    currentSuggestions = results;
+    activeSuggestionIndex = -1;
+
+    if (!results.length) {
+        autocompleteDropdown.innerHTML = `<div class="autocomplete-empty">No matching cities found</div>`;
+        autocompleteDropdown.classList.remove('hidden');
+        citySearchInput.setAttribute('aria-expanded', 'true');
+        return;
+    }
+
+    autocompleteDropdown.innerHTML = results.map((item, index) => {
+        const region = item.admin1 && item.admin1 !== item.name ? item.admin1 : '';
+        const country = item.country || '';
+
+        return `
+            <div class="autocomplete-item" role="option" aria-selected="false" data-index="${index}">
+                <div class="autocomplete-main">
+                    <span class="autocomplete-city">${escapeHtml(item.name)}</span>
+                    ${region ? `<span class="autocomplete-region">${escapeHtml(region)}</span>` : ''}
+                </div>
+                ${country ? `<span class="autocomplete-country">${escapeHtml(country)}</span>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    autocompleteDropdown.classList.remove('hidden');
+    citySearchInput.setAttribute('aria-expanded', 'true');
+
+    autocompleteDropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const suggestion = currentSuggestions[Number(item.dataset.index)];
+            if (suggestion) selectCitySuggestion(suggestion);
+        });
+    });
+}
+
+function setActiveSuggestion(items) {
+    items.forEach((item, index) => {
+        const isActive = index === activeSuggestionIndex;
+        item.classList.toggle('active', isActive);
+        item.setAttribute('aria-selected', String(isActive));
+    });
+
+    const activeItem = items[activeSuggestionIndex];
+    if (activeItem) {
+        activeItem.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function selectCitySuggestion(suggestion) {
+    if (!suggestion || typeof suggestion.latitude !== 'number' || typeof suggestion.longitude !== 'number') {
+        return;
+    }
+
+    searchRequestId += 1;
+    clearTimeout(searchDebounceTimer);
+    abortAutocompleteRequest();
+    hideAutocomplete();
+
+    state.lat = suggestion.latitude;
+    state.lng = suggestion.longitude;
+    state.city = suggestion.name;
+    state.country = suggestion.country || '';
+
+    localStorage.setItem('prayer_lat', state.lat);
+    localStorage.setItem('prayer_lng', state.lng);
+    localStorage.setItem('prayer_city', state.city);
+    localStorage.setItem('prayer_country', state.country);
+
+    citySearchInput.value = '';
+    citySearchInput.blur();
+    locationNameEl.textContent = state.country ? `${state.city}, ${state.country}` : state.city;
+
+    loadPrayerData();
+    showToast(`Location set to ${state.city}${state.country ? `, ${state.country}` : ''}`);
+}
+
+async function resolveSearchOnEnter(query) {
+    clearTimeout(searchDebounceTimer);
+    searchRequestId += 1;
+    abortAutocompleteRequest();
+    currentSuggestions = [];
+    showAutocompleteLoading();
+
+    const requestId = searchRequestId;
+    const controller = new AbortController();
+    searchAbortController = controller;
+
+    try {
+        const results = await fetchCitySuggestions(query, controller.signal);
+        if (requestId !== searchRequestId) return;
+
+        if (results.length > 0) {
+            selectCitySuggestion(results[0]);
+            return;
+        }
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+    } finally {
+        if (searchAbortController === controller) {
+            searchAbortController = null;
+        }
+    }
+
+    if (requestId !== searchRequestId) return;
+
+    // Fallback to the raw query if no suggestion could be resolved
+    const parts = query.split(',').map(part => part.trim()).filter(Boolean);
+    state.city = parts[0] || query;
+    state.country = parts[1] || '';
+    state.lat = null;
+    state.lng = null;
+    localStorage.removeItem('prayer_lat');
+    localStorage.removeItem('prayer_lng');
+    localStorage.setItem('prayer_city', state.city);
+    localStorage.setItem('prayer_country', state.country);
+
+    citySearchInput.value = '';
+    hideAutocomplete();
+    locationNameEl.textContent = state.country ? `${state.city}, ${state.country}` : state.city;
+    loadPrayerData();
+    showToast(`Searching prayer times for ${state.city}...`);
 }
 
 function showToast(message) {

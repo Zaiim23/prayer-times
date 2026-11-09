@@ -5,6 +5,31 @@
 const API_BASE_ALADHAN = 'https://api.aladhan.com/v1';
 const API_NOMINATIM = 'https://nominatim.openstreetmap.org/reverse';
 const API_OVERPASS = 'https://overpass-api.de/api/interpreter';
+const API_OPEN_METEO_GEO = 'https://geocoding-api.open-meteo.com/v1/search';
+
+/**
+ * Fetch city suggestions from Open-Meteo Geocoding API.
+ * Supports an AbortSignal so stale searches can be cancelled.
+ */
+async function fetchCitySuggestions(query, signal) {
+    try {
+        const url = `${API_OPEN_METEO_GEO}?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
+        const response = await fetch(url, { signal });
+        if (!response.ok) {
+            throw new Error('Failed to fetch city suggestions');
+        }
+        const data = await response.json();
+        return (data.results || []).filter(item =>
+            typeof item.latitude === 'number' && typeof item.longitude === 'number'
+        );
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw error;
+        }
+        console.error('Error in fetchCitySuggestions:', error);
+        return [];
+    }
+}
 
 /**
  * Fetch prayer times by city and country
