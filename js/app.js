@@ -41,6 +41,7 @@ const state = {
     method: parseInt(localStorage.getItem('prayer_method')) || 2,
     school: parseInt(localStorage.getItem('prayer_school')) || 0,
     theme: localStorage.getItem('prayer_theme') || 'dark',
+    timeFormat: localStorage.getItem('prayer_time_format') === '12h' ? '12h' : '24h',
     timezone: null,
     timings: null,
     dateInfo: null,
@@ -69,6 +70,8 @@ let timezoneFormatterZone = null;
 
 // DOM Elements
 const themeToggleBtn = document.getElementById('theme-toggle');
+const formatToggleBtn = document.getElementById('format-toggle');
+const formatToggleLabelEl = document.getElementById('format-toggle-label');
 const citySearchInput = document.getElementById('city-search');
 const autocompleteDropdown = document.getElementById('autocomplete-dropdown');
 const btnNearby = document.getElementById('btn-nearby');
@@ -121,6 +124,18 @@ function initTheme() {
 function initSettingsUI() {
     if (methodSelect) methodSelect.value = state.method;
     if (madhabSelect) madhabSelect.value = state.school;
+    updateTimeFormatToggleUI();
+}
+
+function updateTimeFormatToggleUI() {
+    if (!formatToggleBtn || !formatToggleLabelEl) return;
+
+    const is12Hour = state.timeFormat === '12h';
+    const nextFormat = is12Hour ? '24-hour' : '12-hour';
+
+    formatToggleLabelEl.textContent = is12Hour ? '12H' : '24H';
+    formatToggleBtn.title = `Switch to ${nextFormat} time format`;
+    formatToggleBtn.setAttribute('aria-label', `Switch to ${nextFormat} time format`);
 }
 
 function initSearchInput() {
@@ -135,6 +150,16 @@ function initEventListeners() {
         state.theme = state.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('prayer_theme', state.theme);
         initTheme();
+    });
+
+    // Time format toggle (24H <-> 12H)
+    formatToggleBtn.addEventListener('click', () => {
+        state.timeFormat = state.timeFormat === '24h' ? '12h' : '24h';
+        localStorage.setItem('prayer_time_format', state.timeFormat);
+        updateTimeFormatToggleUI();
+        renderPrayerTimeline();
+        updateClockAndCountdown();
+        showToast(`Time format set to ${state.timeFormat === '12h' ? '12-hour (AM/PM)' : '24-hour'}`);
     });
 
     // Keep the default location readable while making it easy to overwrite
@@ -689,7 +714,7 @@ function renderPrayerTimeline() {
                     </div>
                     <div class="prayer-name">${p.name}</div>
                 </div>
-                <div class="prayer-time">${formatTime12Hour(timeStr)}</div>
+                <div class="prayer-time">${formatTime(timeStr)}</div>
             </div>
         `;
     }).join('');
@@ -704,16 +729,56 @@ function updateActivePrayerHighlight(activeKey) {
     });
 }
 
-function formatTime12Hour(time24) {
-    if (!time24) return '--:--';
-    const cleanTime = time24.split(' ')[0];
-    const [hoursStr, minutesStr] = cleanTime.split(':');
-    let hours = parseInt(hoursStr, 10);
-    const minutes = minutesStr;
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    return `${hours}:${minutes} ${ampm}`;
+/**
+ * Format a prayer time string (e.g. "05:42" or "13:15") or a Date object
+ * according to the user's selected 12h/24h preference.
+ */
+function formatTime(timeInput, { withSeconds = false, timeZone = null } = {}) {
+    if (timeInput === null || timeInput === undefined || timeInput === '') {
+        return '--:--';
+    }
+
+    let date;
+
+    if (timeInput instanceof Date) {
+        date = timeInput;
+    } else {
+        const timePart = String(timeInput).trim().split(/\s+/)[0];
+        const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(timePart);
+
+        if (!match) return '--:--';
+
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+        const seconds = Number(match[3] || 0);
+
+        if (hours > 23 || minutes > 59 || seconds > 59) return '--:--';
+
+        // Use a fixed local date so only the clock portion is formatted.
+        date = new Date(2000, 0, 1, hours, minutes, seconds);
+    }
+
+    const options = {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: state.timeFormat === '12h'
+    };
+
+    if (withSeconds) {
+        options.second = '2-digit';
+    }
+
+    if (timeZone) {
+        options.timeZone = timeZone;
+    }
+
+    try {
+        return date.toLocaleTimeString('en-US', options);
+    } catch (error) {
+        // Fall back to the browser timezone if the API sent an invalid zone.
+        delete options.timeZone;
+        return date.toLocaleTimeString('en-US', options);
+    }
 }
 
 function getTimeFormatter() {
@@ -739,20 +804,19 @@ function getTimeFormatter() {
     return timezoneFormatter;
 }
 
-function getNowParts() {
+function getNowParts(date = new Date()) {
     const formatter = getTimeFormatter();
 
     if (!formatter) {
-        const now = new Date();
         return {
-            hours: now.getHours(),
-            minutes: now.getMinutes(),
-            seconds: now.getSeconds()
+            hours: date.getHours(),
+            minutes: date.getMinutes(),
+            seconds: date.getSeconds()
         };
     }
 
     const parts = {};
-    formatter.formatToParts(new Date()).forEach(part => {
+    formatter.formatToParts(date).forEach(part => {
         parts[part.type] = part.value;
     });
 
@@ -808,12 +872,13 @@ function getNextPrayerInfo(nowParts = getNowParts()) {
 }
 
 function updateClockAndCountdown() {
-    const nowParts = getNowParts();
+    const now = new Date();
+    const nowParts = getNowParts(now);
 
-    const hours = String(nowParts.hours).padStart(2, '0');
-    const minutes = String(nowParts.minutes).padStart(2, '0');
-    const seconds = String(nowParts.seconds).padStart(2, '0');
-    currentClockEl.textContent = `${hours}:${minutes}:${seconds}`;
+    currentClockEl.textContent = formatTime(now, {
+        withSeconds: true,
+        timeZone: state.timezone
+    });
 
     if (!state.timings) return;
 
@@ -821,7 +886,7 @@ function updateClockAndCountdown() {
     if (!info) return;
 
     nextPrayerNameEl.textContent = info.next.name;
-    nextPrayerTimeEl.textContent = `At ${formatTime12Hour(info.next.timeStr)}`;
+    nextPrayerTimeEl.textContent = `At ${formatTime(info.next.timeStr)}`;
     updateActivePrayerHighlight(info.activeKey);
 
     let diffSecs = info.next.secs - info.totalCurrentSecs;
