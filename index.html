@@ -3,152 +3,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prayer Times - Islamic Prayer Times & Nearby Mosques</title>
+    <title>Prayer Times — A Daily Rhythm of Prayer</title>
+    <meta name="description" content="Timezone-aware Islamic prayer times, a live countdown, Hijri dates, and a direct search for mosques near your city.">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="app-background">
-        <div class="glow-orb orb-1"></div>
-        <div class="glow-orb orb-2"></div>
-        <div class="glow-orb orb-3"></div>
-    </div>
+    <div class="page-pattern" aria-hidden="true"></div>
 
-    <div class="app-container">
-        <!-- Header -->
-        <header class="app-header glass-card">
-            <div class="brand">
-                <div class="brand-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                </div>
-                <h1>Prayer Times</h1>
-            </div>
-            
-            <div class="header-controls">
+    <div class="app-shell">
+        <header class="masthead">
+            <a class="brand" href="index.html" aria-label="Prayer Times home">
+                <span class="brand-mark" aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.2">
+                        <rect x="8" y="8" width="16" height="16"/>
+                        <rect x="8" y="8" width="16" height="16" transform="rotate(45 16 16)"/>
+                        <circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+                    </svg>
+                </span>
+                <span class="brand-text">
+                    <span class="brand-title">Prayer Times</span>
+                    <span class="brand-subtitle" lang="ar" dir="rtl">أوقات الصلاة</span>
+                </span>
+            </a>
+
+            <div class="masthead-tools">
                 <div class="search-box">
-                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    <input type="text" id="city-search" placeholder="Search city or country..." aria-label="Search city" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="autocomplete-dropdown">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="city-search" placeholder="Search city or country" aria-label="Search city or country" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="autocomplete-dropdown">
                     <div id="autocomplete-dropdown" class="autocomplete-dropdown hidden" role="listbox" aria-label="City suggestions"></div>
                 </div>
-                <button id="btn-nearby" class="icon-btn" title="Use current location" aria-label="Use current location">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <button id="btn-nearby" class="control" type="button" title="Use current location" aria-label="Use current location">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                     <span>Nearby</span>
                 </button>
-                <button id="format-toggle" class="icon-btn format-toggle" title="Switch to 12-hour time format" aria-label="Switch to 12-hour time format">
+                <button id="format-toggle" class="control control--format" type="button" title="Switch to 12-hour time format" aria-label="Switch to 12-hour time format">
                     <span id="format-toggle-label">24H</span>
                 </button>
-                <button id="theme-toggle" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">
-                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                <button id="theme-toggle" class="control control--icon" type="button" title="Switch to light theme" aria-label="Switch to light theme">
+                    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
                 </button>
             </div>
         </header>
 
-        <!-- Main Content Grid -->
-        <main class="app-main">
-            <!-- Left Column: Hero / Countdown & Settings -->
-            <section class="col-left">
-                <!-- Countdown / Next Prayer Card -->
-                <div class="glass-card hero-card" id="next-prayer-card">
-                    <div class="location-badge">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                        <span id="location-name">Loading location...</span>
+        <main class="layout">
+            <div class="column column--left">
+                <article class="panel hero-panel" aria-labelledby="next-prayer-name">
+                    <div class="hero-ornament" aria-hidden="true">
+                        <span></span>
+                        <i class="rub-el-hizb"></i>
+                        <span></span>
                     </div>
 
-                    <div class="date-display">
-                        <span id="gregorian-date">--</span>
-                        <span class="dot-separator">•</span>
-                        <span id="hijri-date">--</span>
-                    </div>
+                    <header class="hero-header">
+                        <p class="location-line">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span id="location-name">Locating your city...</span>
+                        </p>
 
-                    <div class="countdown-container">
-                        <div class="next-label">Next Prayer</div>
-                        <div class="next-prayer-name" id="next-prayer-name">--</div>
-                        <div class="countdown-timer" id="countdown-timer">--:--:--</div>
-                        <div class="next-prayer-time" id="next-prayer-time">At --:--</div>
-                    </div>
-
-                    <div class="current-time-row">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <span>Current Time: <strong id="current-clock">--:--:--</strong></span>
-                    </div>
-                </div>
-
-                <!-- Settings Card -->
-                <div class="glass-card settings-card">
-                    <h3>Calculation Preferences</h3>
-                    <div class="setting-group">
-                        <label for="method-select">Calculation Method</label>
-                        <select id="method-select" class="custom-select">
-                            <option value="2">ISNA (Islamic Society of North America)</option>
-                            <option value="3">Muslim World League (MWL)</option>
-                            <option value="4">Umm Al-Qura University, Makkah</option>
-                            <option value="5">Egyptian General Authority of Survey</option>
-                            <option value="1">University of Islamic Sciences, Karachi</option>
-                            <option value="8">Gulf Region</option>
-                            <option value="7">Institute of Geophysics, University of Tehran</option>
-                            <option value="14">Spiritual Administration of Muslims of Russia</option>
-                        </select>
-                    </div>
-
-                    <div class="setting-group">
-                        <label for="madhab-select">Asr Juristic Method (Madhab)</label>
-                        <select id="madhab-select" class="custom-select">
-                            <option value="0">Shafi, Maliki, Hanbali (Standard)</option>
-                            <option value="1">Hanafi</option>
-                        </select>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Right Column: Timeline & Nearby Mosques -->
-            <section class="col-right">
-                <!-- Daily Prayer Times Timeline -->
-                <div class="glass-card timeline-card">
-                    <div class="card-header">
-                        <div class="card-title-group">
-                            <h2>Today's Prayer Schedule</h2>
-                            <span class="card-subtext">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                                Calculated astronomical times for the selected location
-                            </span>
+                        <div class="hijri-block">
+                            <p class="eyebrow">Hijri Calendar</p>
+                            <p class="hijri-date" id="hijri-date">--</p>
+                            <p class="hijri-arabic" id="hijri-date-arabic" lang="ar" dir="rtl"></p>
+                            <p class="gregorian-date" id="gregorian-date">--</p>
                         </div>
-                        <span id="schedule-date-label" class="sub-label">--</span>
+                    </header>
+
+                    <div class="hero-rule" aria-hidden="true">
+                        <span></span>
+                        <i class="rub-el-hizb"></i>
+                        <span></span>
                     </div>
+
+                    <div class="countdown-block">
+                        <p class="eyebrow">Next Prayer</p>
+                        <h2 class="next-prayer" id="next-prayer-name">--</h2>
+                        <p class="next-prayer-arabic" id="next-prayer-arabic" lang="ar" dir="rtl"></p>
+                        <p class="countdown" id="countdown-timer">--:--:--</p>
+                        <p class="next-at" id="next-prayer-time">At --:--</p>
+                    </div>
+
+                    <footer class="clock-row">
+                        <span>Current time</span>
+                        <strong id="current-clock">--:--:--</strong>
+                    </footer>
+                </article>
+
+                <section class="panel settings-panel" aria-labelledby="settings-title">
+                    <header class="panel-header">
+                        <div>
+                            <p class="eyebrow">Preferences</p>
+                            <h2 id="settings-title">Calculation</h2>
+                        </div>
+                        <span class="panel-aside">Method &amp; Madhab</span>
+                    </header>
+
+                    <div class="setting-field">
+                        <label for="method-select">Calculation Method</label>
+                        <div class="select-wrap">
+                            <select id="method-select">
+                                <option value="2">ISNA — Islamic Society of North America</option>
+                                <option value="3">Muslim World League</option>
+                                <option value="4">Umm Al-Qura University, Makkah</option>
+                                <option value="5">Egyptian General Authority of Survey</option>
+                                <option value="1">University of Islamic Sciences, Karachi</option>
+                                <option value="8">Gulf Region</option>
+                                <option value="7">Institute of Geophysics, University of Tehran</option>
+                                <option value="14">Spiritual Administration of Muslims of Russia</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-field">
+                        <label for="madhab-select">Asr Juristic Method</label>
+                        <div class="select-wrap">
+                            <select id="madhab-select">
+                                <option value="0">Shafi, Maliki, Hanbali — Standard</option>
+                                <option value="1">Hanafi</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="column column--right">
+                <section class="panel schedule-panel" aria-labelledby="schedule-title">
+                    <header class="panel-header">
+                        <div>
+                            <p class="eyebrow">Daily Rhythm</p>
+                            <h2 id="schedule-title">Prayer Schedule</h2>
+                        </div>
+                        <span class="date-chip" id="schedule-date-label">--</span>
+                    </header>
+
+                    <p class="schedule-note">Astronomical times calculated for the selected location.</p>
+
                     <div class="prayer-list" id="prayer-list">
                         <div class="loading-state">Loading prayer times...</div>
                     </div>
-                </div>
+                </section>
 
-                <!-- Nearby Mosques Card -->
-                <div class="glass-card mosques-card">
-                    <div class="card-header">
-                        <h2>Mosques Near You</h2>
-                        <span class="sub-label">Search on Google Maps</span>
+                <section class="panel mosque-panel" aria-labelledby="mosque-title">
+                    <div class="mosque-head">
+                        <span class="mosque-mark" aria-hidden="true">
+                            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.2">
+                                <rect x="8" y="8" width="16" height="16"/>
+                                <rect x="8" y="8" width="16" height="16" transform="rotate(45 16 16)"/>
+                                <circle cx="16" cy="16" r="1.5" fill="currentColor" stroke="none"/>
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="eyebrow">Community</p>
+                            <h2 id="mosque-title">Mosques Near You</h2>
+                        </div>
                     </div>
-                    <a id="mosque-link" class="mosque-cta" href="https://www.google.com/maps/search/mosques" target="_blank" rel="noopener noreferrer">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+
+                    <p class="mosque-copy">Open a live Google Maps search for mosques, prayer spaces, and Jummah locations around your selected city.</p>
+
+                    <a id="mosque-link" class="mosque-link-button" href="https://www.google.com/maps/search/mosques" target="_blank" rel="noopener noreferrer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                         <span id="mosque-link-label">Find Mosques</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
                     </a>
-                    <p class="mosque-disclaimer">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+
+                    <p class="disclaimer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                         <span>Note: Prayer times are calculated for the selected location. Always check with the specific mosque for THEIR exact prayer times, Iqamah and Jummah times.</span>
                     </p>
-                </div>
-            </section>
+                </section>
+            </div>
         </main>
 
-        <!-- Footer -->
-        <footer class="app-footer">
-            <p>Prayer Times &bull; Built with JavaScript &bull; Data by AlAdhan &bull; Mosques via Google Maps</p>
+        <footer class="colophon">
+            <i class="rub-el-hizb" aria-hidden="true"></i>
+            <p>Prayer Times &middot; Calculated with AlAdhan &middot; Mosques via Google Maps</p>
         </footer>
     </div>
 
-    <!-- Notification Toast -->
-    <div id="toast" class="toast hidden"></div>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
