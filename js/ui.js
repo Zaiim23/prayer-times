@@ -1,9 +1,3 @@
-/**
- * ui.js - DOM caching, rendering, live countdown, and presentational helpers
- * Reads the shared application state defined in app.js.
- */
-
-// DOM Elements
 const themeToggleBtn = document.getElementById('theme-toggle');
 const formatToggleBtn = document.getElementById('format-toggle');
 const formatToggleLabelEl = document.getElementById('format-toggle-label');
@@ -16,7 +10,9 @@ const madhabSelect = document.getElementById('madhab-select');
 const locationNameEl = document.getElementById('location-name');
 const gregorianDateEl = document.getElementById('gregorian-date');
 const hijriDateEl = document.getElementById('hijri-date');
+const hijriArabicEl = document.getElementById('hijri-date-arabic');
 const nextPrayerNameEl = document.getElementById('next-prayer-name');
+const nextPrayerArabicEl = document.getElementById('next-prayer-arabic');
 const countdownTimerEl = document.getElementById('countdown-timer');
 const nextPrayerTimeEl = document.getElementById('next-prayer-time');
 const currentClockEl = document.getElementById('current-clock');
@@ -26,42 +22,38 @@ const mosqueLinkEl = document.getElementById('mosque-link');
 const mosqueLinkLabelEl = document.getElementById('mosque-link-label');
 const toastEl = document.getElementById('toast');
 
-// Cache the Intl formatter per timezone rather than rebuilding it every second
-let timezoneFormatter = null;
-let timezoneFormatterZone = null;
-
-// SVG Icons mapping for prayers
-const PRAYER_ICONS = {
-    Fajr: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
-    Sunrise: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
-    Dhuhr: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="m4.22 19.78 1.42-1.42"/><path d="m18.36 5.64 1.42-1.42"/></svg>',
-    Asr: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10l4.5 4.5"/><circle cx="12" cy="12" r="10"/></svg>',
-    Maghrib: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17h18"/><path d="M6 12h12"/><path d="M12 2v7"/><path d="m5 7 7-5 7 5"/><path d="M2 21h20"/></svg>',
-    Isha: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
-};
-
-const PRAYER_KEYS = [
-    { key: 'Fajr', name: 'Fajr' },
-    { key: 'Sunrise', name: 'Sunrise' },
-    { key: 'Dhuhr', name: 'Dhuhr' },
-    { key: 'Asr', name: 'Asr' },
-    { key: 'Maghrib', name: 'Maghrib' },
-    { key: 'Isha', name: 'Isha' }
+const PRAYERS = [
+    { key: 'Fajr', name: 'Fajr', arabic: 'الفجر', obligatory: true },
+    { key: 'Sunrise', name: 'Sunrise', arabic: 'الشروق', obligatory: false },
+    { key: 'Dhuhr', name: 'Dhuhr', arabic: 'الظهر', obligatory: true },
+    { key: 'Asr', name: 'Asr', arabic: 'العصر', obligatory: true },
+    { key: 'Maghrib', name: 'Maghrib', arabic: 'المغرب', obligatory: true },
+    { key: 'Isha', name: 'Isha', arabic: 'العشاء', obligatory: true }
 ];
+
+const OBLIGATORY_PRAYERS = PRAYERS.filter(prayer => prayer.obligatory);
+
+const ARABIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
+let zonedFormatter = null;
+let zonedFormatterZone = null;
+let toastTimer = null;
 
 function initTheme() {
     document.documentElement.setAttribute('data-theme', state.theme);
+
+    const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
+    themeToggleBtn.title = `Switch to ${nextTheme} theme`;
+    themeToggleBtn.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
 }
 
 function initSettingsUI() {
-    if (methodSelect) methodSelect.value = state.method;
-    if (madhabSelect) madhabSelect.value = state.school;
+    methodSelect.value = state.method;
+    madhabSelect.value = state.school;
     updateTimeFormatToggleUI();
 }
 
 function updateTimeFormatToggleUI() {
-    if (!formatToggleBtn || !formatToggleLabelEl) return;
-
     const is12Hour = state.timeFormat === '12h';
     const nextFormat = is12Hour ? '24-hour' : '12-hour';
 
@@ -99,7 +91,7 @@ function renderAutocomplete(results) {
     activeSuggestionIndex = -1;
 
     if (!results.length) {
-        autocompleteDropdown.innerHTML = `<div class="autocomplete-empty">No matching cities found</div>`;
+        autocompleteDropdown.innerHTML = '<div class="autocomplete-empty">No matching cities found</div>';
         autocompleteDropdown.classList.remove('hidden');
         citySearchInput.setAttribute('aria-expanded', 'true');
         return;
@@ -145,9 +137,11 @@ function setActiveSuggestion(items) {
 }
 
 function showToast(message) {
+    clearTimeout(toastTimer);
     toastEl.textContent = message;
     toastEl.classList.remove('hidden');
-    setTimeout(() => {
+
+    toastTimer = setTimeout(() => {
         toastEl.classList.add('hidden');
     }, 3500);
 }
@@ -158,13 +152,33 @@ function escapeHtml(str) {
     );
 }
 
+function fullGregorianLabel(date) {
+    const weekday = date.weekday && date.weekday.en ? `${date.weekday.en}, ` : '';
+    return `${weekday}${Number(date.day)} ${date.month.en} ${date.year}`;
+}
+
+function shortGregorianLabel(date) {
+    return `${Number(date.day)} ${date.month.en.slice(0, 3)} ${date.year}`;
+}
+
+function toArabicDigits(value) {
+    return String(value).replace(/\d/g, digit => ARABIC_DIGITS[Number(digit)]);
+}
+
+function arabicHijriLabel(hijri) {
+    const weekday = hijri.weekday && hijri.weekday.ar ? `${hijri.weekday.ar}، ` : '';
+    return `${weekday}${toArabicDigits(Number(hijri.day))} ${hijri.month.ar} ${toArabicDigits(hijri.year)}\u00a0هـ`;
+}
+
 function renderPrayerData() {
     locationNameEl.textContent = state.country ? `${state.city}, ${state.country}` : state.city;
 
     if (state.dateInfo) {
-        gregorianDateEl.textContent = state.dateInfo.gregorian.date;
-        hijriDateEl.textContent = `${state.dateInfo.hijri.day} ${state.dateInfo.hijri.month.en} ${state.dateInfo.hijri.year} AH`;
-        scheduleDateLabelEl.textContent = state.dateInfo.gregorian.date;
+        const { gregorian, hijri } = state.dateInfo;
+        gregorianDateEl.textContent = fullGregorianLabel(gregorian);
+        hijriDateEl.textContent = `${Number(hijri.day)} ${hijri.month.en} ${hijri.year} AH`;
+        hijriArabicEl.textContent = arabicHijriLabel(hijri);
+        scheduleDateLabelEl.textContent = shortGregorianLabel(gregorian);
     }
 
     renderPrayerTimeline();
@@ -172,33 +186,30 @@ function renderPrayerData() {
 }
 
 function updateMosqueLink() {
-    if (!mosqueLinkEl) return;
-
     mosqueLinkEl.href = mosqueSearchUrl(state.city, state.country);
-    if (mosqueLinkLabelEl) {
-        mosqueLinkLabelEl.textContent = state.city ? `Find Mosques near ${state.city}` : 'Find Mosques';
-    }
+
+    const label = state.city ? `Find Mosques near ${state.city}` : 'Find Mosques';
+    mosqueLinkLabelEl.textContent = label;
+    mosqueLinkEl.setAttribute('aria-label', `${label} — opens Google Maps in a new tab`);
 }
 
 function renderPrayerTimeline() {
     if (!state.timings) return;
 
-    const currentNext = getNextPrayerInfo();
-    state.activeKey = currentNext ? currentNext.activeKey : null;
+    const info = getNextPrayerInfo();
+    state.activeKey = info ? info.activeKey : null;
 
-    prayerListEl.innerHTML = PRAYER_KEYS.map(p => {
-        const timeStr = state.timings[p.key];
-        const isActive = state.activeKey === p.key;
+    prayerListEl.innerHTML = PRAYERS.map(prayer => {
+        const isActive = state.activeKey === prayer.key;
 
         return `
-            <div class="prayer-item ${isActive ? 'active' : ''}" data-prayer-key="${p.key}">
-                <div class="prayer-info">
-                    <div class="prayer-icon-wrap">
-                        ${PRAYER_ICONS[p.key] || PRAYER_ICONS.Fajr}
-                    </div>
-                    <div class="prayer-name">${p.name}</div>
-                </div>
-                <div class="prayer-time">${formatTime(timeStr)}</div>
+            <div class="prayer-item${isActive ? ' active' : ''}" data-prayer-key="${prayer.key}">
+                <span class="prayer-marker" aria-hidden="true"></span>
+                <span class="prayer-identity">
+                    <span class="prayer-name">${prayer.name}</span>
+                    <span class="prayer-arabic" lang="ar" dir="rtl">${prayer.arabic}</span>
+                </span>
+                <span class="prayer-time">${formatTime(state.timings[prayer.key])}</span>
             </div>
         `;
     }).join('');
@@ -213,10 +224,6 @@ function updateActivePrayerHighlight(activeKey) {
     });
 }
 
-/**
- * Format a prayer time string (e.g. "05:42" or "13:15") or a Date object
- * according to the user's selected 12h/24h preference.
- */
 function formatTime(timeInput, { withSeconds = false, timeZone = null } = {}) {
     if (timeInput === null || timeInput === undefined || timeInput === '') {
         return '--:--';
@@ -238,7 +245,6 @@ function formatTime(timeInput, { withSeconds = false, timeZone = null } = {}) {
 
         if (hours > 23 || minutes > 59 || seconds > 59) return '--:--';
 
-        // Use a fixed local date so only the clock portion is formatted.
         date = new Date(2000, 0, 1, hours, minutes, seconds);
     }
 
@@ -259,40 +265,45 @@ function formatTime(timeInput, { withSeconds = false, timeZone = null } = {}) {
     try {
         return date.toLocaleTimeString('en-US', options);
     } catch (error) {
-        // Fall back to the browser timezone if the API sent an invalid zone.
         delete options.timeZone;
         return date.toLocaleTimeString('en-US', options);
     }
 }
 
-function getTimeFormatter() {
-    if (!state.timezone) return null;
+function formatterFor(zone) {
+    if (!zone) return null;
 
-    if (timezoneFormatterZone !== state.timezone) {
+    if (zonedFormatterZone !== zone) {
         try {
-            timezoneFormatter = new Intl.DateTimeFormat('en-GB', {
-                timeZone: state.timezone,
+            zonedFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: zone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
                 hourCycle: 'h23'
             });
-            timezoneFormatterZone = state.timezone;
         } catch (error) {
-            // Invalid IANA timezone from the API - fall back to local time
-            timezoneFormatter = null;
-            timezoneFormatterZone = state.timezone;
+            zonedFormatter = null;
         }
+
+        zonedFormatterZone = zone;
     }
 
-    return timezoneFormatter;
+    return zonedFormatter;
 }
 
-function getNowParts(date = new Date()) {
-    const formatter = getTimeFormatter();
+// Wall-clock parts for a city, so every comparison uses the selected timezone.
+function zonedParts(date, zone = state.timezone) {
+    const formatter = formatterFor(zone);
 
     if (!formatter) {
         return {
+            year: date.getFullYear(),
+            month: date.getMonth() + 1,
+            day: date.getDate(),
             hours: date.getHours(),
             minutes: date.getMinutes(),
             seconds: date.getSeconds()
@@ -305,59 +316,94 @@ function getNowParts(date = new Date()) {
     });
 
     return {
+        year: Number(parts.year),
+        month: Number(parts.month),
+        day: Number(parts.day),
         hours: Number(parts.hour) % 24,
         minutes: Number(parts.minute),
         seconds: Number(parts.second)
     };
 }
 
-function getNextPrayerInfo(nowParts = getNowParts()) {
+// Offset of a zone at a given instant, derived by comparing its wall clock to UTC.
+function zoneOffset(date, zone) {
+    if (!zone) return 0;
+
+    const parts = zonedParts(date, zone);
+    const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hours, parts.minutes, parts.seconds);
+    return asUtc - Math.floor(date.getTime() / 1000) * 1000;
+}
+
+// Reapply the offset once more so prayers around a DST change land on the right instant.
+function prayerInstant(dayParts, timeStr, zone) {
+    const [hours, minutes] = timeStr.split(' ')[0].split(':').map(Number);
+
+    if (!zone) {
+        return new Date(dayParts.year, dayParts.month - 1, dayParts.day, hours, minutes, 0).getTime();
+    }
+
+    const localAsUtc = Date.UTC(dayParts.year, dayParts.month - 1, dayParts.day, hours, minutes, 0);
+    let instant = localAsUtc;
+
+    for (let pass = 0; pass < 2; pass += 1) {
+        instant = localAsUtc - zoneOffset(new Date(instant), zone);
+    }
+
+    return instant;
+}
+
+function addDays(dayParts, amount) {
+    const date = new Date(Date.UTC(dayParts.year, dayParts.month - 1, dayParts.day + amount));
+
+    return {
+        year: date.getUTCFullYear(),
+        month: date.getUTCMonth() + 1,
+        day: date.getUTCDate()
+    };
+}
+
+function getNextPrayerInfo(now = new Date()) {
     if (!state.timings) return null;
 
-    const totalCurrentSecs = nowParts.hours * 3600 + nowParts.minutes * 60 + nowParts.seconds;
+    const today = zonedParts(now);
+    const nowMs = now.getTime();
+    let next = null;
+    let active = null;
 
-    const obligatory = [
-        { key: 'Fajr', name: 'Fajr' },
-        { key: 'Dhuhr', name: 'Dhuhr' },
-        { key: 'Asr', name: 'Asr' },
-        { key: 'Maghrib', name: 'Maghrib' },
-        { key: 'Isha', name: 'Isha' }
-    ];
+    for (const prayer of OBLIGATORY_PRAYERS) {
+        const timeStr = state.timings[prayer.key];
+        if (!timeStr) continue;
 
-    let nextPrayer = null;
-    let activePrayer = obligatory[obligatory.length - 1];
+        const instant = prayerInstant(today, timeStr, state.timezone);
 
-    for (let i = 0; i < obligatory.length; i++) {
-        const p = obligatory[i];
-        const timeStr = state.timings[p.key].split(' ')[0];
-        const [h, m] = timeStr.split(':').map(Number);
-        const pSecs = (h * 60 + m) * 60;
-
-        if (totalCurrentSecs < pSecs) {
-            nextPrayer = { ...p, secs: pSecs, timeStr: state.timings[p.key] };
-            activePrayer = i > 0 ? obligatory[i - 1] : obligatory[obligatory.length - 1];
-            break;
+        if (instant <= nowMs) {
+            active = prayer;
+        } else if (!next) {
+            next = { ...prayer, timeStr, instant };
         }
     }
 
-    if (!nextPrayer) {
-        const fajrStr = state.timings['Fajr'].split(' ')[0];
-        const [h, m] = fajrStr.split(':').map(Number);
-        const pSecs = (h * 60 + m) * 60 + 24 * 3600;
-        nextPrayer = { key: 'Fajr', name: 'Fajr', secs: pSecs, timeStr: state.timings['Fajr'] };
-        activePrayer = obligatory[obligatory.length - 1];
+    if (!next) {
+        const tomorrow = addDays(today, 1);
+        const fajr = OBLIGATORY_PRAYERS[0];
+        const timeStr = state.timings[fajr.key];
+
+        next = {
+            ...fajr,
+            timeStr,
+            instant: prayerInstant(tomorrow, timeStr, state.timezone)
+        };
+        active = OBLIGATORY_PRAYERS[OBLIGATORY_PRAYERS.length - 1];
     }
 
     return {
-        next: nextPrayer,
-        activeKey: activePrayer.key,
-        totalCurrentSecs
+        next,
+        activeKey: active ? active.key : OBLIGATORY_PRAYERS[OBLIGATORY_PRAYERS.length - 1].key
     };
 }
 
 function updateClockAndCountdown() {
     const now = new Date();
-    const nowParts = getNowParts(now);
 
     currentClockEl.textContent = formatTime(now, {
         withSeconds: true,
@@ -366,21 +412,20 @@ function updateClockAndCountdown() {
 
     if (!state.timings) return;
 
-    const info = getNextPrayerInfo(nowParts);
+    const info = getNextPrayerInfo(now);
     if (!info) return;
 
     nextPrayerNameEl.textContent = info.next.name;
+    nextPrayerArabicEl.textContent = info.next.arabic;
     nextPrayerTimeEl.textContent = `At ${formatTime(info.next.timeStr)}`;
     updateActivePrayerHighlight(info.activeKey);
 
-    let diffSecs = info.next.secs - info.totalCurrentSecs;
-    if (diffSecs < 0) {
-        diffSecs += 24 * 3600;
-    }
+    const totalSeconds = Math.max(0, Math.ceil((info.next.instant - now.getTime()) / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
 
-    const hRem = Math.floor(diffSecs / 3600);
-    const mRem = Math.floor((diffSecs % 3600) / 60);
-    const sRem = diffSecs % 60;
-
-    countdownTimerEl.textContent = `${String(hRem).padStart(2, '0')}:${String(mRem).padStart(2, '0')}:${String(sRem).padStart(2, '0')}`;
+    countdownTimerEl.textContent = [hours, minutes, seconds]
+        .map(value => String(value).padStart(2, '0'))
+        .join(':');
 }

@@ -58,15 +58,24 @@ async function fetchPrayerTimesByCity(city, country = '', method = 2, school = 0
  * Fetch prayer times by geographic coordinates
  */
 async function fetchPrayerTimesByCoords(lat, lng, method = 2, school = 0) {
-    try {
-        const today = new Date();
-        const day = String(today.getDate()).padStart(2, '0');
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const year = today.getFullYear();
-        const dateStr = `${day}-${month}-${year}`;
+    const requested = dateStamp(new Date());
+    const data = await requestTimings(requested, lat, lng, method, school);
 
-        const url = `${API_BASE_ALADHAN}/timings/${dateStr}?latitude=${lat}&longitude=${lng}&method=${method}&school=${school}`;
-        
+    // Timings are resolved on the given date, so a browser sitting in another
+    // half of the world can land on the previous day for that city.
+    const locationDate = dateInZone(data.meta && data.meta.timezone);
+
+    if (locationDate !== requested) {
+        return requestTimings(locationDate, lat, lng, method, school);
+    }
+
+    return data;
+}
+
+async function requestTimings(date, lat, lng, method, school) {
+    try {
+        const url = `${API_BASE_ALADHAN}/timings/${date}?latitude=${lat}&longitude=${lng}&method=${method}&school=${school}`;
+
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error('Failed to fetch prayer times for coordinates');
@@ -79,6 +88,34 @@ async function fetchPrayerTimesByCoords(lat, lng, method = 2, school = 0) {
     } catch (error) {
         console.error('Error in fetchPrayerTimesByCoords:', error);
         throw error;
+    }
+}
+
+function dateStamp(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${day}-${month}-${date.getFullYear()}`;
+}
+
+function dateInZone(timeZone, date = new Date()) {
+    if (!timeZone) return dateStamp(date);
+
+    try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).formatToParts(date);
+
+        const values = {};
+        parts.forEach(part => {
+            values[part.type] = part.value;
+        });
+
+        return `${values.day}-${values.month}-${values.year}`;
+    } catch (error) {
+        return dateStamp(date);
     }
 }
 

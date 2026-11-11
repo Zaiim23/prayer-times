@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSettingsUI();
     initSearchInput();
     initEventListeners();
+    updateMosqueLink();
 
     loadPrayerData().then(() => {
         if (usingDefaultLocation && state.timings && state.city === DEFAULT_LOCATION.city) {
@@ -188,6 +189,7 @@ function initEventListeners() {
                     console.error('Reverse geocode failed:', err);
                 }
 
+                citySearchInput.value = '';
                 loadPrayerData();
                 showToast('Location updated successfully!');
             },
