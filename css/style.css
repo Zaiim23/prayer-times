@@ -657,6 +657,37 @@ body {
     gap: 10px;
 }
 
+.mosque-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 20px;
+    background: var(--accent-gradient);
+    border: 1px solid transparent;
+    border-radius: 14px;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.98rem;
+    font-weight: 700;
+    box-shadow: 0 8px 24px var(--accent-glow);
+    transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.mosque-cta:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.mosque-cta:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 3px;
+}
+
+.mosque-cta svg:last-child {
+    opacity: 0.75;
+}
+
 .mosque-disclaimer {
     display: flex;
     align-items: flex-start;

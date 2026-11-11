@@ -46,7 +46,6 @@ const state = {
     timezone: null,
     timings: null,
     dateInfo: null,
-    mosques: [],
     activeKey: null
 };
 
@@ -57,13 +56,7 @@ let searchRequestId = 0;
 let currentSuggestions = [];
 let activeSuggestionIndex = -1;
 
-// Prayer/mosque request management (prevents stale responses from winning)
 let prayerRequestId = 0;
-let mosqueAbortController = null;
-let mosqueRequestId = 0;
-let cityGeocodeAbortController = null;
-let cityGeocodeRequestId = 0;
-let lastMosqueLocationKey = null;
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
@@ -177,9 +170,6 @@ function initEventListeners() {
             return;
         }
 
-        // Cancel any location-specific work for the previous city right away
-        cancelMosqueRequest(true);
-        cancelCityGeocodeRequest();
         showToast('Detecting your location...');
         navigator.geolocation.getCurrentPosition(
             async (position) => {
@@ -204,11 +194,6 @@ function initEventListeners() {
             (error) => {
                 console.error('Geolocation error:', error);
                 showToast('Unable to retrieve your location. Please check permissions.');
-                if (state.mosques.length > 0) {
-                    renderMosques();
-                } else {
-                    mosquesListEl.innerHTML = `<div class="loading-state">Unable to detect location for nearby mosques.</div>`;
-                }
             },
             { timeout: 10000, maximumAge: 60000 }
         );
@@ -218,7 +203,7 @@ function initEventListeners() {
     methodSelect.addEventListener('change', () => {
         state.method = parseInt(methodSelect.value);
         localStorage.setItem('prayer_method', state.method);
-        loadPrayerData({ refreshMosques: false });
+        loadPrayerData();
         showToast('Calculation method updated');
     });
 
@@ -226,7 +211,7 @@ function initEventListeners() {
     madhabSelect.addEventListener('change', () => {
         state.school = parseInt(madhabSelect.value);
         localStorage.setItem('prayer_school', state.school);
-        loadPrayerData({ refreshMosques: false });
+        loadPrayerData();
         showToast('Asr calculation method updated');
     });
 }
@@ -343,42 +328,13 @@ async function resolveSearchOnEnter(query) {
     showToast(`Searching prayer times for ${state.city}...`);
 }
 
-function cancelMosqueRequest(showLoading = false) {
-    mosqueRequestId += 1;
-    if (mosqueAbortController) {
-        mosqueAbortController.abort();
-        mosqueAbortController = null;
-    }
-    if (showLoading) {
-        showMosquesLoading();
-    }
-}
-
-function cancelCityGeocodeRequest() {
-    cityGeocodeRequestId += 1;
-    if (cityGeocodeAbortController) {
-        cityGeocodeAbortController.abort();
-        cityGeocodeAbortController = null;
-    }
-}
-
-async function loadPrayerData({ refreshMosques = true } = {}) {
+async function loadPrayerData() {
     const requestId = ++prayerRequestId;
 
-    if (refreshMosques) {
-        // Abort any in-flight location lookups immediately so stale
-        // mosques can never overwrite the newly selected city.
-        cancelMosqueRequest(true);
-        cancelCityGeocodeRequest();
-    }
-
     try {
-        let data;
-        if (state.lat !== null && state.lng !== null) {
-            data = await fetchPrayerTimesByCoords(state.lat, state.lng, state.method, state.school);
-        } else {
-            data = await fetchPrayerTimesByCity(state.city, state.country, state.method, state.school);
-        }
+        const data = state.lat !== null && state.lng !== null
+            ? await fetchPrayerTimesByCoords(state.lat, state.lng, state.method, state.school)
+            : await fetchPrayerTimesByCity(state.city, state.country, state.method, state.school);
 
         if (requestId !== prayerRequestId) return;
 
@@ -386,110 +342,12 @@ async function loadPrayerData({ refreshMosques = true } = {}) {
         state.dateInfo = data.date;
         state.timezone = data.meta && data.meta.timezone ? data.meta.timezone : null;
 
-        const locationText = state.country ? `${state.city}, ${state.country}` : state.city;
-        locationNameEl.textContent = locationText;
-
-        if (state.dateInfo) {
-            gregorianDateEl.textContent = state.dateInfo.gregorian.date;
-            const hijri = state.dateInfo.hijri;
-            hijriDateEl.textContent = `${hijri.day} ${hijri.month.en} ${hijri.year} AH`;
-            scheduleDateLabelEl.textContent = state.dateInfo.gregorian.date;
-        }
-
-        renderPrayerTimeline();
-
-        const locationKey = state.lat !== null && state.lng !== null
-            ? `geo:${state.lat.toFixed(4)},${state.lng.toFixed(4)}`
-            : `city:${state.city}|${state.country}`;
-        const mosqueLocationChanged = locationKey !== lastMosqueLocationKey;
-
-        if (refreshMosques || mosqueLocationChanged) {
-            lastMosqueLocationKey = locationKey;
-
-            if (state.lat !== null && state.lng !== null) {
-                loadNearbyMosquesData(state.lat, state.lng);
-            } else {
-                geocodeCityForMosques(state.city, state.country, requestId);
-            }
-        }
-
+        renderPrayerData();
+        updateMosqueLink();
     } catch (error) {
         if (requestId !== prayerRequestId) return;
         console.error('Failed to load prayer data:', error);
         showToast('Failed to load prayer times. Please check city name.');
         prayerListEl.innerHTML = `<div class="loading-state">Could not load prayer times. Please try searching another city.</div>`;
-        if (refreshMosques) {
-            mosquesListEl.innerHTML = `<div class="loading-state">Nearby mosques unavailable.</div>`;
-        }
-    }
-}
-
-async function geocodeCityForMosques(city, country, prayerRequest) {
-    cityGeocodeRequestId += 1;
-    const requestId = cityGeocodeRequestId;
-
-    if (cityGeocodeAbortController) {
-        cityGeocodeAbortController.abort();
-    }
-    const controller = new AbortController();
-    cityGeocodeAbortController = controller;
-
-    try {
-        const coordinates = await geocodeCity(city, country, controller.signal);
-
-        if (requestId !== cityGeocodeRequestId || prayerRequest !== prayerRequestId) return;
-
-        if (coordinates) {
-            loadNearbyMosquesData(coordinates.lat, coordinates.lng);
-        } else {
-            mosquesListEl.innerHTML = `<div class="loading-state">Nearby mosques unavailable for this location.</div>`;
-        }
-    } catch (err) {
-        if (err.name === 'AbortError') return;
-        if (requestId !== cityGeocodeRequestId || prayerRequest !== prayerRequestId) return;
-        console.error('City geocoding for mosques failed:', err);
-        mosquesListEl.innerHTML = `<div class="loading-state">Unable to load nearby mosques.</div>`;
-    } finally {
-        if (cityGeocodeAbortController === controller) {
-            cityGeocodeAbortController = null;
-        }
-    }
-}
-
-async function loadNearbyMosquesData(lat, lng) {
-    const requestId = ++mosqueRequestId;
-
-    if (mosqueAbortController) {
-        mosqueAbortController.abort();
-    }
-    const controller = new AbortController();
-    mosqueAbortController = controller;
-
-    // Overpass can occasionally hang; never leave the spinner running forever
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    showMosquesLoading();
-
-    try {
-        const mosques = await fetchNearbyMosques(lat, lng, 5000, controller.signal);
-        if (requestId !== mosqueRequestId) return;
-
-        state.mosques = mosques;
-        renderMosques();
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            if (requestId === mosqueRequestId) {
-                mosquesListEl.innerHTML = `<div class="loading-state">Mosque search timed out. Please try again.</div>`;
-            }
-            return;
-        }
-        if (requestId !== mosqueRequestId) return;
-        console.error('Failed to load mosques:', err);
-        mosquesListEl.innerHTML = `<div class="loading-state">No nearby mosques found within 5km.</div>`;
-    } finally {
-        clearTimeout(timeoutId);
-        if (mosqueAbortController === controller) {
-            mosqueAbortController = null;
-        }
     }
 }

@@ -4,8 +4,6 @@
 
 const API_BASE_ALADHAN = 'https://api.aladhan.com/v1';
 const API_NOMINATIM = 'https://nominatim.openstreetmap.org/reverse';
-const API_NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search';
-const API_OVERPASS = 'https://overpass-api.de/api/interpreter';
 const API_OPEN_METEO_GEO = 'https://geocoding-api.open-meteo.com/v1/search';
 
 /**
@@ -110,84 +108,17 @@ async function reverseGeocode(lat, lng) {
 }
 
 /**
- * Haversine distance formula in kilometers
+ * Build a reliable Google Maps search link for mosques in a city.
  */
-function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth radius in km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-/**
- * Fetch nearby mosques using Overpass API.
- * Limits results to the 5 closest nodes for a much faster response,
- * and accepts an AbortSignal so stale requests can be cancelled.
- */
-async function fetchNearbyMosques(lat, lng, radius = 5000, signal) {
-    try {
-        const query = `[out:json];node["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});out 5;`;
-        const url = `${API_OVERPASS}?data=${encodeURIComponent(query)}`;
-
-        const response = await fetch(url, { signal });
-        if (!response.ok) {
-            throw new Error('Failed to fetch nearby mosques from OpenStreetMap');
-        }
-        const data = await response.json();
-        const elements = data.elements || [];
-
-        const mosques = elements.map(el => {
-            const name = el.tags && (el.tags.name || el.tags['name:en'] || el.tags['alt_name']) ? (el.tags.name || el.tags['name:en'] || el.tags['alt_name']) : 'Unnamed Mosque';
-            const dist = calculateDistance(lat, lng, el.lat, el.lon);
-            return {
-                id: el.id,
-                name: name,
-                lat: el.lat,
-                lon: el.lon,
-                distance: dist
-            };
-        });
-
-        mosques.sort((a, b) => a.distance - b.distance);
-        return mosques.slice(0, 3);
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            throw error;
-        }
-        console.error('Error in fetchNearbyMosques:', error);
-        return [];
-    }
-}
-
-/**
- * Geocode a city and country with Nominatim.
- * Returns null when no usable coordinates were found.
- */
-async function geocodeCity(city, country = '', signal) {
-    const query = encodeURIComponent(`${city}, ${country}`.replace(/^,\s*|\s*,\s*$/g, ''));
-    const url = `${API_NOMINATIM_SEARCH}?format=json&q=${query}&limit=1`;
-
-    const response = await fetch(url, {
-        signal,
-        headers: { 'User-Agent': 'PrayerTimesWebApp/1.0' }
-    });
-
-    if (!response.ok) {
-        throw new Error('City geocoding failed');
+function mosqueSearchUrl(city, country = '') {
+    const place = [city, country].filter(Boolean).join(',');
+    if (!place) {
+        return 'https://www.google.com/maps/search/mosques';
     }
 
-    const results = await response.json();
-    if (!Array.isArray(results) || results.length === 0) {
-        return null;
-    }
+    const query = encodeURIComponent(place)
+        .replace(/%20/g, '+')
+        .replace(/%2C/gi, ',');
 
-    const lat = parseFloat(results[0].lat);
-    const lng = parseFloat(results[0].lon);
-
-    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+    return `https://www.google.com/maps/search/mosques+in+${query}`;
 }

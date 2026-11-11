@@ -22,7 +22,8 @@ const nextPrayerTimeEl = document.getElementById('next-prayer-time');
 const currentClockEl = document.getElementById('current-clock');
 const scheduleDateLabelEl = document.getElementById('schedule-date-label');
 const prayerListEl = document.getElementById('prayer-list');
-const mosquesListEl = document.getElementById('mosques-list');
+const mosqueLinkEl = document.getElementById('mosque-link');
+const mosqueLinkLabelEl = document.getElementById('mosque-link-label');
 const toastEl = document.getElementById('toast');
 
 // Cache the Intl formatter per timezone rather than rebuilding it every second
@@ -151,45 +152,32 @@ function showToast(message) {
     }, 3500);
 }
 
-function showMosquesLoading() {
-    mosquesListEl.innerHTML = `
-        <div class="loading-mosques">
-            <span class="spinner" aria-hidden="true"></span>
-            <span>Finding nearby mosques...</span>
-        </div>
-    `;
-}
-
-function renderMosques() {
-    if (!state.mosques || state.mosques.length === 0) {
-        mosquesListEl.innerHTML = `<div class="loading-state">No nearby mosques found within 5km radius.</div>`;
-        return;
-    }
-
-    mosquesListEl.innerHTML = state.mosques.map(m => {
-        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${m.lat},${m.lon}`;
-
-        return `
-            <div class="mosque-item">
-                <div class="mosque-info">
-                    <div class="mosque-icon-wrap">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                    </div>
-                    <a href="${mapsUrl}" target="_blank" rel="noopener noreferrer" class="mosque-link" title="Open ${escapeHtml(m.name)} in Google Maps">
-                        <span>${escapeHtml(m.name)}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
-                    </a>
-                </div>
-                <div class="mosque-distance">${m.distance.toFixed(1)} km</div>
-            </div>
-        `;
-    }).join('');
-}
-
 function escapeHtml(str) {
     return str.replace(/[&<>'"]/g,
         tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
     );
+}
+
+function renderPrayerData() {
+    locationNameEl.textContent = state.country ? `${state.city}, ${state.country}` : state.city;
+
+    if (state.dateInfo) {
+        gregorianDateEl.textContent = state.dateInfo.gregorian.date;
+        hijriDateEl.textContent = `${state.dateInfo.hijri.day} ${state.dateInfo.hijri.month.en} ${state.dateInfo.hijri.year} AH`;
+        scheduleDateLabelEl.textContent = state.dateInfo.gregorian.date;
+    }
+
+    renderPrayerTimeline();
+    updateClockAndCountdown();
+}
+
+function updateMosqueLink() {
+    if (!mosqueLinkEl) return;
+
+    mosqueLinkEl.href = mosqueSearchUrl(state.city, state.country);
+    if (mosqueLinkLabelEl) {
+        mosqueLinkLabelEl.textContent = state.city ? `Find Mosques near ${state.city}` : 'Find Mosques';
+    }
 }
 
 function renderPrayerTimeline() {

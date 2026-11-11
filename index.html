@@ -125,15 +125,14 @@
                 <!-- Nearby Mosques Card -->
                 <div class="glass-card mosques-card">
                     <div class="card-header">
-                        <h2>Nearby Mosques</h2>
-                        <span class="sub-label">Within 5km radius</span>
+                        <h2>Mosques Near You</h2>
+                        <span class="sub-label">Search on Google Maps</span>
                     </div>
-                    <div class="mosques-list" id="mosques-list">
-                        <div class="loading-mosques">
-                            <span class="spinner" aria-hidden="true"></span>
-                            <span>Detecting location for nearby mosques...</span>
-                        </div>
-                    </div>
+                    <a id="mosque-link" class="mosque-cta" href="https://www.google.com/maps/search/mosques" target="_blank" rel="noopener noreferrer">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span id="mosque-link-label">Find Mosques</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+                    </a>
                     <p class="mosque-disclaimer">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                         <span>Note: Prayer times are calculated for the selected location. Always check with the specific mosque for THEIR exact prayer times, Iqamah and Jummah times.</span>
@@ -144,7 +143,7 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>Prayer Times &bull; Built with JavaScript &bull; Data by AlAdhan & OpenStreetMap</p>
+            <p>Prayer Times &bull; Built with JavaScript &bull; Data by AlAdhan &bull; Mosques via Google Maps</p>
         </footer>
     </div>
 
