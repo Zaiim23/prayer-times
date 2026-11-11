@@ -1,9 +1,4 @@
-/**
- * app.js - application state, request handling, data loading, and event listeners
- * API calls live in api.js and rendering lives in ui.js.
- */
-
-function parseStoredCoordinate(key) {
+function storedNumber(key) {
     const stored = localStorage.getItem(key);
     if (stored === null || stored === '') return null;
     const parsed = Number(stored);
@@ -19,8 +14,8 @@ const DEFAULT_LOCATION = Object.freeze({
 
 const savedCity = localStorage.getItem('prayer_city');
 const savedCountry = localStorage.getItem('prayer_country');
-const savedLat = parseStoredCoordinate('prayer_lat');
-const savedLng = parseStoredCoordinate('prayer_lng');
+const savedLat = storedNumber('prayer_lat');
+const savedLng = storedNumber('prayer_lng');
 const hasSavedLocation = Boolean(savedCity) || (savedLat !== null && savedLng !== null);
 const usingDefaultLocation = !hasSavedLocation;
 
@@ -33,7 +28,6 @@ const initialLocation = hasSavedLocation
     }
     : DEFAULT_LOCATION;
 
-// Application State (shared with ui.js)
 const state = {
     city: initialLocation.city,
     country: initialLocation.country,
@@ -49,7 +43,6 @@ const state = {
     activeKey: null
 };
 
-// Autocomplete request management
 let searchAbortController = null;
 let searchDebounceTimer = null;
 let searchRequestId = 0;
@@ -58,7 +51,6 @@ let activeSuggestionIndex = -1;
 
 let prayerRequestId = 0;
 
-// Initialize App
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initSettingsUI();
@@ -72,19 +64,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Start live clock ticker
     setInterval(updateClockAndCountdown, 1000);
 });
 
 function initEventListeners() {
-    // Theme toggle
     themeToggleBtn.addEventListener('click', () => {
         state.theme = state.theme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('prayer_theme', state.theme);
         initTheme();
     });
 
-    // Time format toggle (24H <-> 12H)
     formatToggleBtn.addEventListener('click', () => {
         state.timeFormat = state.timeFormat === '24h' ? '12h' : '24h';
         localStorage.setItem('prayer_time_format', state.timeFormat);
@@ -94,7 +83,6 @@ function initEventListeners() {
         showToast(`Time format set to ${state.timeFormat === '12h' ? '12-hour (AM/PM)' : '24-hour'}`);
     });
 
-    // Keep the default location readable while making it easy to overwrite
     citySearchInput.addEventListener('focus', () => {
         const locationText = state.country ? `${state.city}, ${state.country}` : state.city;
         if (usingDefaultLocation && citySearchInput.value === locationText) {
@@ -102,7 +90,6 @@ function initEventListeners() {
         }
     });
 
-    // City search: debounced autocomplete
     citySearchInput.addEventListener('input', () => {
         const query = citySearchInput.value.trim();
         clearTimeout(searchDebounceTimer);
@@ -157,14 +144,12 @@ function initEventListeners() {
         }
     });
 
-    // Dismiss suggestions when clicking outside the search box
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.search-box')) {
             dismissAutocomplete();
         }
     });
 
-    // Nearby button (geolocation)
     btnNearby.addEventListener('click', () => {
         if (!navigator.geolocation) {
             showToast('Geolocation is not supported by your browser');
@@ -201,7 +186,6 @@ function initEventListeners() {
         );
     });
 
-    // Method change
     methodSelect.addEventListener('change', () => {
         state.method = parseInt(methodSelect.value);
         localStorage.setItem('prayer_method', state.method);
@@ -209,7 +193,6 @@ function initEventListeners() {
         showToast('Calculation method updated');
     });
 
-    // Madhab change
     madhabSelect.addEventListener('change', () => {
         state.school = parseInt(madhabSelect.value);
         localStorage.setItem('prayer_school', state.school);
@@ -312,7 +295,7 @@ async function resolveSearchOnEnter(query) {
 
     if (requestId !== searchRequestId) return;
 
-    // Fallback to the raw query if no suggestion could be resolved
+    // Fall back to raw text when the city could not be resolved
     const parts = query.split(',').map(part => part.trim()).filter(Boolean);
     state.city = parts[0] || query;
     state.country = parts[1] || '';

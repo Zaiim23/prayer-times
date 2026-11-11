@@ -1,15 +1,7 @@
-/**
- * api.js - API services for Prayer Times and Nearby Mosques
- */
-
 const API_BASE_ALADHAN = 'https://api.aladhan.com/v1';
 const API_NOMINATIM = 'https://nominatim.openstreetmap.org/reverse';
 const API_OPEN_METEO_GEO = 'https://geocoding-api.open-meteo.com/v1/search';
 
-/**
- * Fetch city suggestions from Open-Meteo Geocoding API.
- * Supports an AbortSignal so stale searches can be cancelled.
- */
 async function fetchCitySuggestions(query, signal) {
     try {
         const url = `${API_OPEN_METEO_GEO}?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
@@ -30,9 +22,6 @@ async function fetchCitySuggestions(query, signal) {
     }
 }
 
-/**
- * Fetch prayer times by city and country
- */
 async function fetchPrayerTimesByCity(city, country = '', method = 2, school = 0) {
     try {
         const queryCity = encodeURIComponent(city);
@@ -54,9 +43,6 @@ async function fetchPrayerTimesByCity(city, country = '', method = 2, school = 0
     }
 }
 
-/**
- * Fetch prayer times by geographic coordinates
- */
 async function fetchPrayerTimesByCoords(lat, lng, method = 2, school = 0) {
     const requested = dateStamp(new Date());
     const data = await requestTimings(requested, lat, lng, method, school);
@@ -119,9 +105,6 @@ function dateInZone(timeZone, date = new Date()) {
     }
 }
 
-/**
- * Reverse geocode coordinates to get city & country name
- */
 async function reverseGeocode(lat, lng) {
     try {
         const url = `${API_NOMINATIM}?format=json&lat=${lat}&lon=${lng}&zoom=10`;
@@ -144,9 +127,6 @@ async function reverseGeocode(lat, lng) {
     }
 }
 
-/**
- * Build a reliable Google Maps search link for mosques in a city.
- */
 function mosqueSearchUrl(city, country = '') {
     const place = [city, country].filter(Boolean).join(',');
     if (!place) {

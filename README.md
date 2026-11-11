@@ -4,34 +4,35 @@
 
 **[🔴 Live Demo](https://zaiim23.github.io/prayer-times/)**
 
-A premium, modern Islamic Prayer Times and Nearby Mosques web application built with JavaScript (ES6+), HTML5, and CSS3.
+A premium Islamic Prayer Times web app — emerald and gold manuscript styling, Hijri dates in Arabic and English, and a live countdown that always follows the selected city's timezone. Built with vanilla JavaScript, HTML5, and CSS3. No frameworks, no build step.
 
 ## Features
 
-- **Accurate Prayer Times:** Powered by the free AlAdhan API with support for multiple calculation methods (ISNA, MWL, Umm Al-Qura, Egyptian General Authority, etc.).
-- **Madhab Support:** Toggle between Standard (Shafi, Maliki, Hanbali) and Hanafi calculation methods for Asr.
-- **Live Countdown & Clock:** Timezone-aware countdown to the next upcoming prayer, alongside a live clock for the selected location.
-- **12h / 24h Time Format:** Toggle the live clock, next-prayer time, and full schedule between 12-hour AM/PM and 24-hour formats.
-- **Daily Prayer Timeline:** Beautiful schedule view for Fajr, Sunrise, Dhuhr, Asr, Maghrib, and Isha with automatic active-prayer highlighting.
-- **Smart City Autocomplete:** Debounced, glassmorphic city suggestions from the Open-Meteo Geocoding API, displayed as `City, Country`.
-- **Nearby Mosques Discovery:** Finds the 3 closest mosques within a 5km radius using the OpenStreetMap Overpass API and the Haversine distance formula, with direct Google Maps links.
-- **Search & Geolocation:** Search for any city/country worldwide or use browser geolocation with reverse geocoding.
-- **Hijri Date Display:** Displays both Gregorian and Islamic (Hijri) calendar dates.
-- **Dark Glassmorphism UI:** High-end dark glassmorphism design with a smooth light mode toggle and Lucide-style SVG icons.
-- **Persistence:** Remembers user location, calculation method, madhab, theme, and time-format preferences in `localStorage`.
-- **Race-Safe Requests:** Debounced search and `AbortController`-backed requests prevent stale city or mosque data from overwriting newer results.
+- **Islamic Design Language:** Deep emerald (`#0F3D30`), gold (`#C5A869`), and sand (`#F9F6F0`) palette with a hand-drawn Rub el Hizb (8-pointed star) motif, double-line geometric frames, sharp 1px borders, and a faint tiled pattern.
+- **Typography:** [Lora](https://fonts.google.com/specimen/Lora) for headings and labels, [Inter](https://fonts.google.com/specimen/Inter) for UI text, [IBM Plex Mono](https://fonts.google.com/specimen/IBMPlexMono) for times, and [Amiri](https://fonts.google.com/specimen/Amiri) for Arabic.
+- **Hijri Calendar:** Today's Hijri date shown prominently in gold, with the Arabic date and Arabic prayer names alongside every English label.
+- **Timezone-Aware Countdown:** The countdown and clock are computed from the selected city's IANA timezone (DST-safe), never the browser's.
+- **Accurate Prayer Times:** Powered by the free [AlAdhan](https://aladhan.com/prayer-times-api) API with eight calculation methods and Shafi/Hanafi Asr support.
+- **12h / 24h Time Format:** Toggle the clock, next prayer, and full schedule between 12-hour AM/PM and 24-hour formats.
+- **Daily Prayer Timeline:** Fajr, Sunrise, Dhuhr, Asr, Maghrib, and Isha in a ruled schedule with the current prayer highlighted in gold.
+- **Smart City Autocomplete:** Debounced city suggestions from the Open-Meteo Geocoding API, shown as `City, Country` with keyboard navigation.
+- **Find Mosques Near Me:** One click opens a Google Maps search for mosques around the selected city — instant, reliable, and API-free.
+- **Search & Geolocation:** Search any city worldwide or use browser geolocation with reverse geocoding.
+- **Dark & Light Themes:** Emerald night mode and a warm sand day mode, both persisted in `localStorage`.
+- **Race-Safe Requests:** `AbortController`-backed requests and request counters prevent stale city data from overwriting newer results.
 
 ## File Structure
 
 ```
 prayer-times/
 ├── index.html
+├── favicon.svg
 ├── css/
 │   └── style.css
 ├── js/
-│   ├── api.js        (AlAdhan, Open-Meteo, Nominatim, and Overpass API integration)
-│   ├── ui.js         (DOM caching, rendering, live countdown, and presentational helpers)
-│   └── app.js        (State management, autocomplete, request handling, and event listeners)
+│   ├── api.js   (AlAdhan, Open-Meteo, Nominatim, and Google Maps links)
+│   ├── ui.js    (DOM caching, rendering, timezone-aware countdown)
+│   └── app.js   (State management, autocomplete, request handling, events)
 ├── .github/
 │   └── workflows/
 │       └── lint.yml  (JavaScript syntax, asset, and CSS checks)
@@ -41,10 +42,10 @@ prayer-times/
 
 ## APIs
 
-- [AlAdhan Prayer Times](https://aladhan.com/prayer-times-api) for prayer timings and Hijri dates.
-- [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api) for city suggestions.
-- [OpenStreetMap Overpass](https://overpass-api.de/) for nearby mosques.
-- [Nominatim](https://nominatim.openstreetmap.org/) for reverse geocoding and city coordinates.
+- [AlAdhan Prayer Times](https://aladhan.com/prayer-times-api) — prayer timings, Hijri dates, and timezone metadata.
+- [Open-Meteo Geocoding](https://open-meteo.com/en/docs/geocoding-api) — city suggestions.
+- [Nominatim](https://nominatim.openstreetmap.org/) — reverse geocoding for the Nearby button.
+- [Google Maps](https://www.google.com/maps) — mosque search links (no API key required).
 
 ## Important Note
 
@@ -52,4 +53,4 @@ Prayer times are calculated for the selected location. Always check with the spe
 
 ## Getting Started
 
-Simply open `index.html` in any modern web browser or serve it with a local static server (e.g., Live Server in VS Code). No build tools, bundlers, or backend required!
+Open `index.html` in any modern browser, or serve the folder with any static server (for example `npx serve` or Live Server in VS Code). No build tools, bundlers, or backend required.
